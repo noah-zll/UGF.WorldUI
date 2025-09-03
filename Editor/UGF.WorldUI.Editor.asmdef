@@ -1,0 +1,18 @@
+{
+    "name": "UGF.WorldUI.Editor",
+    "rootNamespace": "UGF.WorldUI.Editor",
+    "references": [
+        "GUID:e2cf78d81d1967c49ba6dfb090badf4f"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

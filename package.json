@@ -1,0 +1,42 @@
+{
+  "name": "com.ugf.worldui",
+  "version": "1.0.0",
+  "displayName": "UGF.WorldUI",
+  "description": "A comprehensive Unity package for managing world-space UI elements with advanced features like object pooling, culling, LOD system, and performance optimization.",
+  "unity": "2021.3",
+  "unityRelease": "0f1",
+  "documentationUrl": "https://github.com/unity-game-framework/ugf-worldui/blob/main/Documentation/README.md",
+  "changelogUrl": "https://github.com/unity-game-framework/ugf-worldui/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/unity-game-framework/ugf-worldui/blob/main/LICENSE.md",
+  "keywords": [
+    "ui",
+    "world-space",
+    "canvas",
+    "performance",
+    "pooling",
+    "culling",
+    "lod",
+    "ugf",
+    "unity-game-framework"
+  ],
+  "author": {
+    "name": "Noah",
+    "email": "support@ugf.dev",
+    "url": "https://ugf.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/unity-game-framework/ugf-worldui.git"
+  },
+  "dependencies": {
+    "com.unity.ugui": "1.0.0"
+  },
+  "samples": [
+    {
+      "displayName": "Basic Usage",
+      "description": "Basic examples showing how to create and manage world-space UI elements.",
+      "path": "Samples~/BasicUsage"
+    }
+  ],
+  "type": "library"
+}
