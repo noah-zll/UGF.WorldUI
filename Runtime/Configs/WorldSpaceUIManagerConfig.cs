@@ -22,8 +22,8 @@ namespace UGF.WorldUI
         public float cleanupInterval = 5f;
         
         [Header("性能优化")]
-        [Tooltip("启用全局视锥剔除")]
-        public bool enableGlobalCulling = true;
+        [Tooltip("剔除系统配置")]
+        public CullingConfig cullingConfig = CullingConfig.CreateDefault();
         
         [Tooltip("全局剔除距离")]
         [Range(10f, 1000f)]
@@ -54,7 +54,7 @@ namespace UGF.WorldUI
                 maxTotalInstances = 1000,
                 enableAutoCleanup = true,
                 cleanupInterval = 5f,
-                enableGlobalCulling = true,
+                cullingConfig = CullingConfig.CreateDefault(),
                 globalCullingDistance = 100f,
                 maxUpdatePerFrame = 100,
                 enablePerformanceMonitoring = true,
@@ -78,6 +78,12 @@ namespace UGF.WorldUI
             if (cleanupInterval <= 0)
             {
                 Debug.LogWarning("[WorldSpaceUIManagerConfig] cleanupInterval 必须大于0");
+                return false;
+            }
+            
+            if (cullingConfig == null)
+            {
+                Debug.LogWarning("[WorldSpaceUIManagerConfig] cullingConfig 不能为空");
                 return false;
             }
             

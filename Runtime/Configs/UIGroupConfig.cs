@@ -45,7 +45,7 @@ namespace UGF.WorldUI
         public bool enableAutoRemoveOldest = true;
         
         [Header("性能优化")]
-        [Tooltip("启用视锥剔除")]
+        [Tooltip("启用剔除")]
         public bool enableCulling = true;
         
         [Tooltip("剔除距离")]

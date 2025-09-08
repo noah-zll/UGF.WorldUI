@@ -228,7 +228,7 @@ public class UIGroupConfig
     public int sortingOrder = 0;           // 渲染层级
     public float updateInterval = 0.016f;   // 更新间隔
     public int maxInstances = 100;          // 最大实例数
-    public bool enableCulling = true;       // 启用视锥剔除
+
     public float cullingDistance = 50f;     // 剔除距离
     public bool enablePooling = true;       // 启用对象池
     public int poolSize = 20;               // 对象池大小
@@ -278,7 +278,7 @@ var config = new UIGroupConfig
 {
     sortingOrder = 10,
     maxInstances = 50,
-    enableCulling = true,
+
     cullingDistance = 30f
 };
 WorldSpaceUIManager.Instance.CreateGroup("InteractionUI", config);

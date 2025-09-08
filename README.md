@@ -67,7 +67,7 @@ var config = new UIGroupConfig
 {
     sortingOrder = 10,
     maxInstances = 50,
-    enableCulling = true,
+
     cullingDistance = 30f
 };
 WorldSpaceUIManager.Instance.CreateGroup("InteractionUI", config);

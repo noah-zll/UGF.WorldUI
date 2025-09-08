@@ -120,6 +120,11 @@ namespace UGF.WorldUI
         /// </summary>
         public IReadOnlyDictionary<string, UIGroup> Groups => _groups;
         
+        /// <summary>
+        /// 剔除系统
+        /// </summary>
+        public CullingSystem CullingSystem => _cullingSystem;
+        
         #endregion
         
         #region Unity Lifecycle
@@ -209,8 +214,17 @@ namespace UGF.WorldUI
             _updateScheduler = new UpdateScheduler();
             
             // 初始化剔除系统
-            var cullingConfig = CullingConfig.CreateDefault();
-            _cullingSystem = new CullingSystem(cullingConfig);
+            if (_globalConfig.cullingConfig != null)
+            {
+                _cullingSystem = new CullingSystem(_globalConfig.cullingConfig);
+            }
+            else
+            {
+                // 如果配置为空，使用默认配置但禁用剔除
+                var defaultConfig = CullingConfig.CreateDefault();
+                defaultConfig.enableCulling = false;
+                _cullingSystem = new CullingSystem(defaultConfig);
+            }
             
             // 创建默认分组
             CreateGroup("Default", new UIGroupConfig());
@@ -549,6 +563,28 @@ namespace UGF.WorldUI
             group?.SetActive(active);
         }
         
+        /// <summary>
+        /// 设置分组剔除启用状态
+        /// </summary>
+        /// <param name="groupName">分组名称</param>
+        /// <param name="enabled">是否启用剔除</param>
+        public void SetGroupCullingEnabled(string groupName, bool enabled)
+        {
+            var group = GetGroup(groupName);
+            group?.SetCullingEnabled(enabled);
+        }
+        
+        /// <summary>
+        /// 获取分组剔除启用状态
+        /// </summary>
+        /// <param name="groupName">分组名称</param>
+        /// <returns>是否启用剔除</returns>
+        public bool IsGroupCullingEnabled(string groupName)
+        {
+            var group = GetGroup(groupName);
+            return group?.IsCullingEnabled() ?? false;
+        }
+        
         private UIGroup GetOrCreateGroup(string groupName)
         {
             var group = GetGroup(groupName);
@@ -624,6 +660,63 @@ namespace UGF.WorldUI
         public void SetGlobalConfig(WorldSpaceUIManagerConfig config)
         {
             _globalConfig = config ?? new WorldSpaceUIManagerConfig();
+            
+            // 如果已初始化，更新剔除系统配置
+            if (IsInitialized && _cullingSystem != null)
+            {
+                if (_globalConfig.cullingConfig != null)
+                {
+                    SetCullingConfig(_globalConfig.cullingConfig);
+                }
+                else
+                {
+                    // 配置为空时禁用剔除
+                    var defaultConfig = CullingConfig.CreateDefault();
+                    defaultConfig.enableCulling = false;
+                    SetCullingConfig(defaultConfig);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// 获取剔除系统配置
+        /// </summary>
+        /// <returns>剔除配置</returns>
+        public CullingConfig GetCullingConfig()
+        {
+            return _cullingSystem?.Config;
+        }
+        
+        /// <summary>
+        /// 设置剔除系统配置
+        /// </summary>
+        /// <param name="config">剔除配置</param>
+        public void SetCullingConfig(CullingConfig config)
+        {
+            if (config == null)
+            {
+                Debug.LogError("[WorldSpaceUIManager] 剔除配置不能为空");
+                return;
+            }
+            
+            // 重新初始化剔除系统
+            var oldCullingSystem = _cullingSystem;
+            _cullingSystem = new CullingSystem(config);
+            
+            // 迁移所有UI组件到新的剔除系统
+            if (oldCullingSystem != null)
+            {
+                foreach (var group in _groups.Values)
+                {
+                    foreach (var component in group.UIComponents)
+                    {
+                        _cullingSystem.AddCullableObject(component);
+                    }
+                }
+                oldCullingSystem.Dispose();
+            }
+            
+            Debug.Log("[WorldSpaceUIManager] 剔除系统配置已更新");
         }
         
         #endregion

@@ -493,7 +493,7 @@ var config = new UIGroupConfig
 ```csharp
 var config = new UIGroupConfig
 {
-    enableCulling = true,
+
     cullingDistance = 50f  // 根据游戏需求调整
 };
 ```

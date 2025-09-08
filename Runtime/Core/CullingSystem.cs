@@ -115,6 +115,21 @@ namespace UGF.WorldUI
         }
         
         /// <summary>
+        /// 强制显示UI组件（用于UIGroup禁用剔除时）
+        /// </summary>
+        /// <param name="component">要强制显示的UI组件</param>
+        public void ForceShow(WorldSpaceUIComponent component)
+        {
+            if (component == null || !component.IsCulled) return;
+            
+            // 从剔除列表中移除
+            _culledObjects.Remove(component);
+            
+            // 显示组件
+            component.SetCulled(false);
+        }
+        
+        /// <summary>
         /// 清空所有对象
         /// </summary>
         public void ClearAllObjects()
@@ -250,6 +265,12 @@ namespace UGF.WorldUI
         /// <returns>是否应该剔除</returns>
         private bool ShouldCullObject(WorldSpaceUIComponent component)
         {
+            // 检查UIGroup是否启用剔除
+            if (component.Group != null && !component.Group.IsCullingEnabled())
+            {
+                return false; // UIGroup禁用剔除，不剔除此组件
+            }
+            
             var position = component.transform.position;
             var cameraPosition = Camera.transform.position;
             
@@ -401,17 +422,7 @@ namespace UGF.WorldUI
             component.SetCulled(true);
         }
         
-        /// <summary>
-        /// 强制显示对象
-        /// </summary>
-        /// <param name="component">UI组件</param>
-        public void ForceShow(WorldSpaceUIComponent component)
-        {
-            if (component == null || !_culledObjects.Contains(component)) return;
-            
-            _culledObjects.Remove(component);
-            component.SetCulled(false);
-        }
+
         
         /// <summary>
         /// 强制更新所有对象

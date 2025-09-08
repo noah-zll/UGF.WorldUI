@@ -254,6 +254,42 @@ namespace UGF.WorldUI
         
         #endregion
         
+        #region Culling Management
+        
+        /// <summary>
+        /// 设置分组剔除启用状态
+        /// </summary>
+        /// <param name="enabled">是否启用剔除</param>
+        public void SetCullingEnabled(bool enabled)
+        {
+            _config.enableCulling = enabled;
+            
+            // 如果禁用剔除，强制显示所有UI
+            if (!enabled)
+            {
+                foreach (var component in _uiComponents)
+                {
+                    if (component != null && component.IsCulled)
+                    {
+                        WorldSpaceUIManager.Instance?.CullingSystem?.ForceShow(component);
+                    }
+                }
+            }
+            
+            Debug.Log($"[UIGroup] {_name} 剔除状态设置为: {enabled}");
+        }
+        
+        /// <summary>
+        /// 获取剔除启用状态
+        /// </summary>
+        /// <returns>是否启用剔除</returns>
+        public bool IsCullingEnabled()
+        {
+            return _config.enableCulling;
+        }
+        
+        #endregion
+        
         #region UI Management
         
         /// <summary>
@@ -461,38 +497,6 @@ namespace UGF.WorldUI
         protected virtual void OnGroupUpdate()
         {
             // 子类可以重写此方法实现自定义更新逻辑
-        }
-        
-        #endregion
-        
-        #region Culling
-        
-        /// <summary>
-        /// 执行剔除检查
-        /// </summary>
-        /// <param name="cameraPosition">相机位置</param>
-        /// <param name="cameraForward">相机前方向</param>
-        /// <param name="frustumPlanes">视锥体平面</param>
-        public void PerformCulling(Vector3 cameraPosition, Vector3 cameraForward, Plane[] frustumPlanes)
-        {
-            if (!_config.enableCulling) return;
-            
-            foreach (var ui in _uiComponents)
-            {
-                if (ui == null) continue;
-                
-                var distance = Vector3.Distance(cameraPosition, ui.transform.position);
-                var inRange = distance <= _config.cullingDistance;
-                var inFrustum = true;
-                
-                if (inRange && frustumPlanes != null)
-                {
-                    var bounds = ui.GetBounds();
-                    inFrustum = GeometryUtility.TestPlanesAABB(frustumPlanes, bounds);
-                }
-                
-                ui.SetCulled(!(inRange && inFrustum));
-            }
         }
         
         #endregion

@@ -78,7 +78,7 @@ namespace WorldUISample.Controllers
                 maxTotalInstances = 500,
                 enableAutoCleanup = true,
                 cleanupInterval = 5f,
-                enableGlobalCulling = true,
+
                 globalCullingDistance = 100f,
                 maxUpdatePerFrame = 50,
                 enablePerformanceMonitoring = true,
@@ -108,7 +108,7 @@ namespace WorldUISample.Controllers
                 sortingOrder = 10,
                 maxInstances = 50,
                 enableAutoRemoveOldest = true,
-                enableCulling = true,
+
                 cullingDistance = 50f,
                 enablePooling = true,
                 poolSize = 20,
@@ -122,7 +122,7 @@ namespace WorldUISample.Controllers
                 sortingOrder = 20,
                 maxInstances = 100,
                 enableAutoRemoveOldest = true,
-                enableCulling = true,
+
                 cullingDistance = 30f,
                 enablePooling = true,
                 poolSize = 50,
@@ -136,7 +136,7 @@ namespace WorldUISample.Controllers
                 sortingOrder = 15,
                 maxInstances = 20,
                 enableAutoRemoveOldest = false,
-                enableCulling = true,
+
                 cullingDistance = 20f,
                 enablePooling = true,
                 poolSize = 10,

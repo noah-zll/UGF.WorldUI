@@ -103,7 +103,7 @@ namespace WorldUISample.Tests
                 maxTotalInstances = maxUICount * 2,
                 enableAutoCleanup = true,
                 cleanupInterval = 1f,
-                enableGlobalCulling = true,
+
                 globalCullingDistance = spawnRadius * 2f,
                 maxUpdatePerFrame = 100,
                 enablePerformanceMonitoring = true,
@@ -130,7 +130,7 @@ namespace WorldUISample.Tests
                 sortingOrder = 10,
                 maxInstances = maxUICount,
                 enableAutoRemoveOldest = true,
-                enableCulling = true,
+
                 cullingDistance = spawnRadius,
                 enablePooling = true,
                 poolSize = Mathf.Min(100, maxUICount / 10),
@@ -145,7 +145,7 @@ namespace WorldUISample.Tests
                 sortingOrder = 20,
                 maxInstances = damageTextPerSecond * 5, // 5秒的缓冲
                 enableAutoRemoveOldest = true,
-                enableCulling = true,
+
                 cullingDistance = spawnRadius / 2f,
                 enablePooling = true,
                 poolSize = damageTextPerSecond * 2,

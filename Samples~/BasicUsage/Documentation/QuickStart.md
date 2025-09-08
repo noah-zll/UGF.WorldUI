@@ -136,7 +136,7 @@ var config = new UIGroupConfig
 {
     sortingOrder = 10,
     maxInstances = 50,
-    enableCulling = true,
+
     cullingDistance = 50f,
     enablePooling = true,
     poolSize = 20
@@ -174,7 +174,6 @@ public class HealthBarUI : WorldSpaceUIComponent
 ```csharp
 var config = new UIGroupConfig
 {
-    enableCulling = true,
     cullingDistance = 50f  // 50米外的UI将被隐藏
 };
 ```
