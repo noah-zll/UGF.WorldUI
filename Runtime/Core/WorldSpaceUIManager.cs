@@ -338,7 +338,7 @@ namespace UGF.WorldUI
             // 返回对象池或销毁
             if (group?.Config.enablePooling == true)
             {
-                _objectPoolManager.Return(uiComponent);
+                _objectPoolManager?.Return(uiComponent);
             }
             else
             {
