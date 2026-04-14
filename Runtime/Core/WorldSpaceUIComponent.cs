@@ -255,8 +255,16 @@ namespace UGF.WorldUI
                 if (_canvas == null)
                 {
                     _canvas = gameObject.AddComponent<Canvas>();
-                    _canvas.renderMode = RenderMode.WorldSpace;
-                    _canvas.worldCamera = _manager?.UICamera;
+                    var targetRenderMode = _group?.Config.renderMode ?? RenderMode.WorldSpace;
+                    _canvas.renderMode = targetRenderMode;
+                    if (targetRenderMode == RenderMode.WorldSpace || targetRenderMode == RenderMode.ScreenSpaceCamera)
+                    {
+                        _canvas.worldCamera = _manager?.UICamera;
+                    }
+                    else
+                    {
+                        _canvas.worldCamera = null;
+                    }
 
                     // 添加GraphicRaycaster用于交互
                     if (GetComponent<GraphicRaycaster>() == null)
@@ -333,7 +341,36 @@ namespace UGF.WorldUI
                 targetPosition = _worldPosition + _offset;
             }
 
-            transform.position = targetPosition;
+            if (_canvas != null && (_canvas.renderMode == RenderMode.ScreenSpaceOverlay || _canvas.renderMode == RenderMode.ScreenSpaceCamera))
+            {
+                UpdateScreenSpacePosition(targetPosition);
+            }
+            else
+            {
+                transform.position = targetPosition;
+            }
+        }
+
+        protected virtual void UpdateScreenSpacePosition(Vector3 worldPosition)
+        {
+            if (_canvas == null || _rectTransform == null) return;
+            if (_manager?.UICamera == null) return;
+
+            var camera = _manager.UICamera;
+            var screenPoint = camera.WorldToScreenPoint(worldPosition);
+
+            if (screenPoint.z <= 0f)
+            {
+                _rectTransform.anchoredPosition = new Vector2(-1000000f, -1000000f);
+                return;
+            }
+
+            var canvasRect = _canvas.GetComponent<RectTransform>();
+            if (canvasRect == null) return;
+
+            var eventCamera = _canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : _canvas.worldCamera;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screenPoint, eventCamera, out var localPoint);
+            _rectTransform.anchoredPosition = localPoint;
         }
 
         /// <summary>
@@ -341,6 +378,7 @@ namespace UGF.WorldUI
         /// </summary>
         protected virtual void UpdateRotation()
         {
+            if (_canvas != null && _canvas.renderMode != RenderMode.WorldSpace) return;
             if (!_config.faceCamera || _manager?.UICamera == null) return;
 
             var camera = _manager.UICamera;
@@ -364,7 +402,7 @@ namespace UGF.WorldUI
             var scale = _config.scaleCurve.Evaluate(normalizedTime);
 
             // 正交相机优化：根据相机类型调整缩放
-            if (_manager?.UICamera != null && _manager.UICamera.orthographic && _group?.Config.enableOrthographicOptimization == true)
+            if (_canvas != null && _canvas.renderMode == RenderMode.WorldSpace && _manager?.UICamera != null && _manager.UICamera.orthographic && _group?.Config.enableOrthographicOptimization == true)
             {
                 // 正交相机下，根据距离模式调整缩放
                 var camera = _manager.UICamera;

@@ -12,41 +12,41 @@ namespace UGF.WorldUI
     public class UIGroup : IDisposable
     {
         #region Fields
-        
+
         private readonly string _name;
         private readonly UIGroupConfig _config;
         private readonly List<WorldSpaceUIComponent> _uiComponents;
         private readonly GameObject _groupObject;
-        
+
         private bool _isVisible = true;
         private bool _isActive = true;
         private bool _disposed = false;
         private Camera _camera => WorldSpaceUIManager.Instance?.UICamera;
-        
+
         #endregion
-        
+
         #region Properties
-        
+
         /// <summary>
         /// 分组名称
         /// </summary>
         public string Name => _name;
-        
+
         /// <summary>
         /// 分组配置
         /// </summary>
         public UIGroupConfig Config => _config;
-        
+
         /// <summary>
         /// 分组Transform
         /// </summary>
         public Transform Transform => _groupObject?.transform;
-        
+
         /// <summary>
         /// 当前UI数量
         /// </summary>
         public int Count => _uiComponents.Count;
-        
+
         /// <summary>
         /// 是否可见
         /// </summary>
@@ -55,7 +55,7 @@ namespace UGF.WorldUI
             get => _isVisible;
             set => SetVisible(value);
         }
-        
+
         /// <summary>
         /// 是否激活
         /// </summary>
@@ -64,16 +64,16 @@ namespace UGF.WorldUI
             get => _isActive;
             set => SetActive(value);
         }
-        
+
         /// <summary>
         /// 所有UI组件（只读）
         /// </summary>
         public IReadOnlyList<WorldSpaceUIComponent> UIComponents => _uiComponents.AsReadOnly();
-        
+
         #endregion
-        
+
         #region Constructor
-        
+
         /// <summary>
         /// 构造函数
         /// </summary>
@@ -85,21 +85,21 @@ namespace UGF.WorldUI
             _name = name;
             _config = config ?? new UIGroupConfig();
             _uiComponents = new List<WorldSpaceUIComponent>();
-            
+
             // 创建分组GameObject
-            _groupObject = new GameObject($"[UIGroup] {name}");
-            _groupObject.transform.SetParent(parent);
-            
+            _groupObject = new GameObject($"[UIGroup] {name}", typeof(RectTransform));
+            _groupObject.transform.SetParent(parent, false);
+
             // 设置Canvas排序
             SetupCanvas();
-            
+
             Debug.Log($"[UIGroup] 创建分组: {name}");
         }
-        
+
         #endregion
-        
+
         #region Setup
-        
+
         private void SetupCanvas()
         {
             // 添加Canvas组件（World Space UI需要Canvas）
@@ -107,30 +107,37 @@ namespace UGF.WorldUI
             if (canvas == null)
             {
                 canvas = _groupObject.AddComponent<Canvas>();
-                canvas.renderMode = RenderMode.WorldSpace;
-                // 设置世界空间相机
-                if (_camera != null)
-                {
-                    canvas.worldCamera = _camera;
-                }
+                canvas.renderMode = _config.renderMode;
             }
-            
+
+            ApplyCanvasCameraSettings(canvas);
+
             // 设置排序
             if (_config.sortingOrder != 0 || !string.IsNullOrEmpty(_config.sortingLayerName))
             {
                 canvas.overrideSorting = true;
                 canvas.sortingOrder = _config.sortingOrder;
-                
+
                 if (!string.IsNullOrEmpty(_config.sortingLayerName))
                 {
                     canvas.sortingLayerName = _config.sortingLayerName;
                 }
             }
-            
-            // 设置CanvasScaler World模式
-            if (_config.enableWorldSpaceScaler)
+
+            // 设置CanvasScaler
+            if (_config.renderMode == RenderMode.WorldSpace)
             {
-                SetupCanvasScaler();
+                if (_config.enableWorldSpaceScaler)
+                {
+                    SetupWorldSpaceCanvasScaler();
+                }
+            }
+            else
+            {
+                if (_config.enableScreenSpaceScaler)
+                {
+                    SetupScreenSpaceCanvasScaler();
+                }
             }
 
             // 添加GraphicRaycaster用于交互
@@ -140,21 +147,21 @@ namespace UGF.WorldUI
                 _groupObject.AddComponent<GraphicRaycaster>();
             }
         }
-        
+
         /// <summary>
         /// 设置CanvasScaler World模式
         /// </summary>
-        private void SetupCanvasScaler()
+        private void SetupWorldSpaceCanvasScaler()
         {
             var canvasScaler = _groupObject.GetComponent<CanvasScaler>();
             if (canvasScaler == null)
             {
                 canvasScaler = _groupObject.AddComponent<CanvasScaler>();
             }
-            
+
             // 配置为World Space模式
             canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
-            
+
             // 检测相机投影模式并应用相应的缩放因子
             if (_camera != null && _camera.orthographic && _config.enableOrthographicOptimization)
             {
@@ -167,11 +174,48 @@ namespace UGF.WorldUI
                 Debug.Log($"[UIGroup] 分组 {_name} 使用透视相机缩放因子: {_config.worldSpaceScaleFactor}");
             }
         }
-        
+
+        private void SetupScreenSpaceCanvasScaler()
+        {
+            var canvasScaler = _groupObject.GetComponent<CanvasScaler>();
+            if (canvasScaler == null)
+            {
+                canvasScaler = _groupObject.AddComponent<CanvasScaler>();
+            }
+
+            canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            canvasScaler.referenceResolution = _config.screenSpaceReferenceResolution;
+            canvasScaler.matchWidthOrHeight = _config.screenSpaceMatchWidthOrHeight;
+        }
+
+        private void ApplyCanvasCameraSettings(Canvas canvas)
+        {
+            if (canvas == null) return;
+
+            switch (canvas.renderMode)
+            {
+                case RenderMode.WorldSpace:
+                case RenderMode.ScreenSpaceCamera:
+                    if (_camera != null)
+                    {
+                        canvas.worldCamera = _camera;
+                    }
+                    if (canvas.renderMode == RenderMode.ScreenSpaceCamera)
+                    {
+                        canvas.planeDistance = _config.screenSpacePlaneDistance;
+                    }
+                    break;
+
+                case RenderMode.ScreenSpaceOverlay:
+                    canvas.worldCamera = null;
+                    break;
+            }
+        }
+
         #endregion
-        
+
         #region Canvas Management
-        
+
         /// <summary>
         /// 设置世界空间相机
         /// </summary>
@@ -180,19 +224,19 @@ namespace UGF.WorldUI
             var canvas = _groupObject.GetComponent<Canvas>();
             if (canvas != null && _camera != null)
             {
-                canvas.worldCamera = _camera;
-                Debug.Log($"[UIGroup] 分组 {_name} 已设置世界空间相机: {_camera?.name}");
+                ApplyCanvasCameraSettings(canvas);
+                Debug.Log($"[UIGroup] 分组 {_name} 已设置Canvas相机: {_camera?.name}");
             }
         }
-        
+
         /// <summary>
         /// 更新CanvasScaler设置
         /// </summary>
         /// <param name="scaleFactor">缩放因子</param>
         public void UpdateCanvasScaler(float scaleFactor)
         {
-            if (!_config.enableWorldSpaceScaler) return;
-            
+            if (_config.renderMode != RenderMode.WorldSpace || !_config.enableWorldSpaceScaler) return;
+
             var canvasScaler = _groupObject.GetComponent<CanvasScaler>();
             if (canvasScaler != null)
             {
@@ -201,17 +245,17 @@ namespace UGF.WorldUI
                 Debug.Log($"[UIGroup] 分组 {_name} 已更新缩放因子: {scaleFactor}");
             }
         }
-        
+
         /// <summary>
         /// 刷新CanvasScaler设置（根据当前相机投影模式）
         /// </summary>
         public void RefreshCanvasScaler()
         {
-            if (!_config.enableWorldSpaceScaler) return;
-            
+            if (_config.renderMode != RenderMode.WorldSpace || !_config.enableWorldSpaceScaler) return;
+
             var canvasScaler = _groupObject.GetComponent<CanvasScaler>();
             if (canvasScaler != null)
-            { 
+            {
                 if (_camera != null && _camera.orthographic && _config.enableOrthographicOptimization)
                 {
                     canvasScaler.scaleFactor = _config.orthographicScaleFactor;
@@ -224,7 +268,7 @@ namespace UGF.WorldUI
                 }
             }
         }
-        
+
         /// <summary>
         /// 获取Canvas组件
         /// </summary>
@@ -233,7 +277,7 @@ namespace UGF.WorldUI
         {
             return _groupObject?.GetComponent<Canvas>();
         }
-        
+
         /// <summary>
         /// 获取CanvasScaler组件
         /// </summary>
@@ -242,7 +286,7 @@ namespace UGF.WorldUI
         {
             return _groupObject?.GetComponent<CanvasScaler>();
         }
-        
+
         /// <summary>
         /// 获取GraphicRaycaster组件
         /// </summary>
@@ -251,11 +295,11 @@ namespace UGF.WorldUI
         {
             return _groupObject?.GetComponent<GraphicRaycaster>();
         }
-        
+
         #endregion
-        
+
         #region Culling Management
-        
+
         /// <summary>
         /// 设置分组剔除启用状态
         /// </summary>
@@ -263,7 +307,7 @@ namespace UGF.WorldUI
         public void SetCullingEnabled(bool enabled)
         {
             _config.enableCulling = enabled;
-            
+
             // 如果禁用剔除，强制显示所有UI
             if (!enabled)
             {
@@ -275,10 +319,10 @@ namespace UGF.WorldUI
                     }
                 }
             }
-            
+
             Debug.Log($"[UIGroup] {_name} 剔除状态设置为: {enabled}");
         }
-        
+
         /// <summary>
         /// 获取剔除启用状态
         /// </summary>
@@ -287,11 +331,11 @@ namespace UGF.WorldUI
         {
             return _config.enableCulling;
         }
-        
+
         #endregion
-        
+
         #region UI Management
-        
+
         /// <summary>
         /// 添加UI组件
         /// </summary>
@@ -304,12 +348,12 @@ namespace UGF.WorldUI
                 Debug.LogError("[UIGroup] UI组件不能为空");
                 return false;
             }
-            
+
             // 检查数量限制
             if (_config.maxInstances > 0 && _uiComponents.Count >= _config.maxInstances)
             {
                 Debug.LogWarning($"[UIGroup] 分组 {_name} 已达到最大实例数量: {_config.maxInstances}");
-                
+
                 // 如果启用了自动清理，尝试清理最旧的UI
                 if (_config.enableAutoRemoveOldest)
                 {
@@ -320,7 +364,7 @@ namespace UGF.WorldUI
                     return false;
                 }
             }
-            
+
             if (!_uiComponents.Contains(uiComponent))
             {
                 _uiComponents.Add(uiComponent);
@@ -330,16 +374,16 @@ namespace UGF.WorldUI
                 {
                     uiComponent.transform.SetParent(Transform);
                 }
-                
+
                 // 应用分组状态
                 ApplyGroupState(uiComponent);
 
                 return true;
             }
-            
+
             return false;
         }
-        
+
         /// <summary>
         /// 移除UI组件
         /// </summary>
@@ -348,17 +392,17 @@ namespace UGF.WorldUI
         public bool RemoveUI(WorldSpaceUIComponent uiComponent)
         {
             if (uiComponent == null) return false;
-            
+
             return _uiComponents.Remove(uiComponent);
         }
-        
+
         /// <summary>
         /// 清理过期的UI
         /// </summary>
         public void CleanupExpiredUIs()
         {
             var expiredUIs = _uiComponents.Where(ui => ui != null && ui.IsExpired).ToList();
-            
+
             foreach (var ui in expiredUIs)
             {
                 RemoveUI(ui);
@@ -367,11 +411,11 @@ namespace UGF.WorldUI
                     UnityEngine.Object.Destroy(ui.gameObject);
                 }
             }
-            
+
             // 清理空引用
             _uiComponents.RemoveAll(ui => ui == null);
         }
-        
+
         /// <summary>
         /// 移除最旧的UI
         /// </summary>
@@ -381,14 +425,14 @@ namespace UGF.WorldUI
             {
                 var oldestUI = _uiComponents[0];
                 RemoveUI(oldestUI);
-                
+
                 if (oldestUI != null && oldestUI.gameObject != null)
                 {
                     UnityEngine.Object.Destroy(oldestUI.gameObject);
                 }
             }
         }
-        
+
         /// <summary>
         /// 清除所有UI组件
         /// </summary>
@@ -402,17 +446,17 @@ namespace UGF.WorldUI
                     UnityEngine.Object.Destroy(ui.gameObject);
                 }
             }
-            
+
             // 清空列表
             _uiComponents.Clear();
-            
+
             Debug.Log($"[UIGroup] 已清除分组 {_name} 中的所有UI");
         }
-        
+
         #endregion
-        
+
         #region Group State
-        
+
         /// <summary>
         /// 设置分组可见性
         /// </summary>
@@ -420,10 +464,10 @@ namespace UGF.WorldUI
         public void SetVisible(bool visible)
         {
             if (_isVisible == visible) return;
-            
+
             _isVisible = visible;
             _groupObject.SetActive(_isActive && _isVisible);
-            
+
             // 通知所有UI组件
             foreach (var ui in _uiComponents)
             {
@@ -433,7 +477,7 @@ namespace UGF.WorldUI
                 }
             }
         }
-        
+
         /// <summary>
         /// 设置分组激活状态
         /// </summary>
@@ -441,10 +485,10 @@ namespace UGF.WorldUI
         public void SetActive(bool active)
         {
             if (_isActive == active) return;
-            
+
             _isActive = active;
             _groupObject.SetActive(_isActive && _isVisible);
-            
+
             // 通知所有UI组件
             foreach (var ui in _uiComponents)
             {
@@ -454,7 +498,7 @@ namespace UGF.WorldUI
                 }
             }
         }
-        
+
         /// <summary>
         /// 应用分组状态到UI组件
         /// </summary>
@@ -462,24 +506,24 @@ namespace UGF.WorldUI
         private void ApplyGroupState(WorldSpaceUIComponent uiComponent)
         {
             if (uiComponent == null) return;
-            
+
             uiComponent.OnGroupVisibilityChanged(_isVisible);
             uiComponent.OnGroupActiveChanged(_isActive);
         }
-        
+
         #endregion
-        
+
         #region Update
-        
+
         /// <summary>
         /// 更新分组（由UpdateScheduler调用）
         /// </summary>
         public void Update()
         {
             if (!_isActive) return;
-            
+
             OnGroupUpdate();
-            
+
             // 清理无效的UI组件引用
             for (int i = _uiComponents.Count - 1; i >= 0; i--)
             {
@@ -490,7 +534,7 @@ namespace UGF.WorldUI
                 }
             }
         }
-        
+
         /// <summary>
         /// 分组自定义更新逻辑（可被子类重写）
         /// </summary>
@@ -498,11 +542,11 @@ namespace UGF.WorldUI
         {
             // 子类可以重写此方法实现自定义更新逻辑
         }
-        
+
         #endregion
-        
+
         #region Statistics
-        
+
         /// <summary>
         /// 获取分组统计信息
         /// </summary>
@@ -512,7 +556,7 @@ namespace UGF.WorldUI
             var activeCount = _uiComponents.Count(ui => ui != null && ui.gameObject.activeInHierarchy);
             var visibleCount = _uiComponents.Count(ui => ui != null && ui.IsVisible);
             var culledCount = _uiComponents.Count(ui => ui != null && ui.IsCulled);
-            
+
             return new UIGroupStats
             {
                 Name = _name,
@@ -524,18 +568,18 @@ namespace UGF.WorldUI
                 IsGroupActive = _isActive
             };
         }
-        
+
         #endregion
-        
+
         #region Dispose
-        
+
         /// <summary>
         /// 释放资源
         /// </summary>
         public void Dispose()
         {
             if (_disposed) return;
-            
+
             // 清理所有UI组件
             foreach (var ui in _uiComponents.ToList())
             {
@@ -545,21 +589,21 @@ namespace UGF.WorldUI
                 }
             }
             _uiComponents.Clear();
-            
+
             // 销毁分组GameObject
             if (_groupObject != null)
             {
                 UnityEngine.Object.Destroy(_groupObject);
             }
-            
+
             _disposed = true;
-            
+
             Debug.Log($"[UIGroup] 销毁分组: {_name}");
         }
-        
+
         #endregion
     }
-    
+
     /// <summary>
     /// UI分组统计信息
     /// </summary>
