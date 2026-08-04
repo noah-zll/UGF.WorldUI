@@ -545,6 +545,52 @@ namespace UGF.WorldUI
 
         #endregion
 
+        #region Aggregation Management
+
+        /// <summary>
+        /// 设置分组聚合启用状态
+        /// </summary>
+        public void SetAggregationEnabled(bool enabled)
+        {
+            _config.enableAggregation = enabled;
+
+            // 如果禁用聚合，立即解散该分组下所有聚合组
+            if (!enabled)
+            {
+                WorldSpaceUIManager.Instance?.AggregationSystem?.DisbandGroupsInGroup(this);
+            }
+
+            Debug.Log($"[UIGroup] {_name} 聚合状态设置为: {enabled}");
+        }
+
+        /// <summary>
+        /// 获取聚合启用状态（分组开关 + 全局开关都需满足）
+        /// </summary>
+        public bool IsAggregationEnabled()
+        {
+            return _config.enableAggregation
+                && (WorldSpaceUIManager.Instance?.GlobalConfig?.enableAggregation ?? false);
+        }
+
+        /// <summary>
+        /// 设置该分组的聚合配置（覆盖全局配置）
+        /// </summary>
+        public void SetAggregationConfig(UIAggregationConfig config)
+        {
+            _config.aggregationConfig = config;
+        }
+
+        /// <summary>
+        /// 获取该分组生效的聚合配置（分组配置 > 默认值）
+        /// </summary>
+        public UIAggregationConfig GetEffectiveAggregationConfig()
+        {
+            return _config.aggregationConfig
+                ?? UIAggregationConfig.CreateDefault();
+        }
+
+        #endregion
+
         #region Statistics
 
         /// <summary>

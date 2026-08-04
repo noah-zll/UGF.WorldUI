@@ -12,37 +12,56 @@ namespace UGF.WorldUI
         [Header("实例管理")]
         [Tooltip("最大总实例数量，0表示无限制")]
         public int maxTotalInstances = 1000;
-        
+
         [Header("自动清理")]
         [Tooltip("启用自动清理过期UI")]
         public bool enableAutoCleanup = true;
-        
+
         [Tooltip("清理间隔时间（秒）")]
         [Range(1f, 60f)]
         public float cleanupInterval = 5f;
-        
+
         [Header("性能优化")]
         [Tooltip("剔除系统配置")]
         public CullingConfig cullingConfig = CullingConfig.CreateDefault();
-        
+
         [Tooltip("全局剔除距离")]
         [Range(10f, 1000f)]
         public float globalCullingDistance = 100f;
-        
+
         [Tooltip("每帧最大更新UI数量")]
         [Range(10, 1000)]
         public int maxUpdatePerFrame = 100;
-        
+
+        [Header("聚合系统设置（全局）")]
+        [Tooltip("全局启用/禁用聚合")]
+        public bool enableAggregation = false;
+
+        [Tooltip("聚合检测间隔（秒）")]
+        [Range(0.05f, 2f)]
+        public float aggregationDetectionInterval = 0.2f;
+
+        [Tooltip("每帧最大检测的UI数量")]
+        [Range(10, 500)]
+        public int aggregationMaxDetectionsPerFrame = 100;
+
+        [Tooltip("空间网格单元大小（世界空间）")]
+        [Range(1f, 50f)]
+        public float aggregationSpatialGridCellSize = 5f;
+
+        [Tooltip("显示聚合调试信息")]
+        public bool aggregationShowDebugInfo = false;
+
         [Header("调试")]
         [Tooltip("启用性能监控")]
         public bool enablePerformanceMonitoring = true;
-        
+
         [Tooltip("显示调试信息")]
         public bool showDebugInfo = false;
-        
+
         [Tooltip("在Scene视图中显示Gizmos")]
         public bool showGizmos = true;
-        
+
         /// <summary>
         /// 创建默认配置
         /// </summary>
@@ -58,11 +77,15 @@ namespace UGF.WorldUI
                 globalCullingDistance = 100f,
                 maxUpdatePerFrame = 100,
                 enablePerformanceMonitoring = true,
+                enableAggregation = false,
+                aggregationDetectionInterval = 0.2f,
+                aggregationMaxDetectionsPerFrame = 100,
+                aggregationSpatialGridCellSize = 5f,
                 showDebugInfo = false,
                 showGizmos = true
             };
         }
-        
+
         /// <summary>
         /// 验证配置有效性
         /// </summary>
@@ -74,31 +97,31 @@ namespace UGF.WorldUI
                 Debug.LogWarning("[WorldSpaceUIManagerConfig] maxTotalInstances 不能为负数");
                 return false;
             }
-            
+
             if (cleanupInterval <= 0)
             {
                 Debug.LogWarning("[WorldSpaceUIManagerConfig] cleanupInterval 必须大于0");
                 return false;
             }
-            
+
             if (cullingConfig == null)
             {
                 Debug.LogWarning("[WorldSpaceUIManagerConfig] cullingConfig 不能为空");
                 return false;
             }
-            
+
             if (globalCullingDistance <= 0)
             {
                 Debug.LogWarning("[WorldSpaceUIManagerConfig] globalCullingDistance 必须大于0");
                 return false;
             }
-            
+
             if (maxUpdatePerFrame <= 0)
             {
                 Debug.LogWarning("[WorldSpaceUIManagerConfig] maxUpdatePerFrame 必须大于0");
                 return false;
             }
-            
+
             return true;
         }
     }

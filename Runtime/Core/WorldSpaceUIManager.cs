@@ -10,9 +10,9 @@ namespace UGF.WorldUI
     public class WorldSpaceUIManager : MonoBehaviour
     {
         #region Singleton
-        
+
         private static WorldSpaceUIManager _instance;
-        
+
         /// <summary>
         /// 单例实例
         /// </summary>
@@ -33,32 +33,35 @@ namespace UGF.WorldUI
                 return _instance;
             }
         }
-        
+
         #endregion
-        
+
         #region Fields
-        
+
         [Header("全局配置")]
         [SerializeField] private WorldSpaceUIManagerConfig _globalConfig = new WorldSpaceUIManagerConfig();
-        
+
         [Header("相机设置")]
         [SerializeField] private Camera _uiCamera;
-        
+
         // 分组管理
         private readonly Dictionary<string, UIGroup> _groups = new Dictionary<string, UIGroup>();
-        
+
         // 对象池管理
         private UIObjectPoolManager _objectPoolManager;
-        
+
         // 更新调度器
         private UpdateScheduler _updateScheduler;
-        
+
         // 剔除系统
         private CullingSystem _cullingSystem;
-        
+
+        // 聚合系统
+        private UIAggregationSystem _aggregationSystem;
+
         // 相机投影模式检测
         private bool _lastOrthographicState;
-        
+
         // 事件
         public event Action<WorldSpaceUIComponent> OnUICreated;
         public event Action<WorldSpaceUIComponent> OnUIDestroyed;
@@ -66,16 +69,16 @@ namespace UGF.WorldUI
         public event Action<string> OnGroupRemoved;
         public event Action<int> OnInstanceCountChanged;
         public event Action<float> OnUpdateTimeChanged;
-        
+
         #endregion
-        
+
         #region Properties
-        
+
         /// <summary>
         /// 全局配置
         /// </summary>
         public WorldSpaceUIManagerConfig GlobalConfig => _globalConfig;
-        
+
         /// <summary>
         /// UI相机
         /// </summary>
@@ -84,51 +87,56 @@ namespace UGF.WorldUI
             get => _uiCamera ?? Camera.main;
             set => _uiCamera = value;
         }
-        
+
         /// <summary>
         /// 当前UI相机是否为正交投影
         /// </summary>
         public bool IsOrthographicCamera => UICamera != null && UICamera.orthographic;
-        
+
         /// <summary>
         /// 获取当前相机的投影模式描述
         /// </summary>
         public string CameraProjectionMode => IsOrthographicCamera ? "正交投影" : "透视投影";
-        
+
         /// <summary>
         /// 检测相机投影模式变化事件
         /// </summary>
         public event System.Action<bool> OnCameraProjectionModeChanged;
-        
+
         /// <summary>
         /// 是否已初始化
         /// </summary>
         public bool IsInitialized { get; private set; }
-        
+
         /// <summary>
         /// 分组数量
         /// </summary>
         public int GroupCount => _groups.Count;
-        
+
         /// <summary>
         /// 当前UI实例总数
         /// </summary>
         public int TotalInstanceCount { get; private set; }
-        
+
         /// <summary>
         /// 所有分组
         /// </summary>
         public IReadOnlyDictionary<string, UIGroup> Groups => _groups;
-        
+
         /// <summary>
         /// 剔除系统
         /// </summary>
         public CullingSystem CullingSystem => _cullingSystem;
-        
+
+        /// <summary>
+        /// 聚合系统
+        /// </summary>
+        public UIAggregationSystem AggregationSystem => _aggregationSystem;
+
         #endregion
-        
+
         #region Unity Lifecycle
-        
+
         private void Awake()
         {
             if (_instance == null)
@@ -142,77 +150,84 @@ namespace UGF.WorldUI
                 Destroy(gameObject);
             }
         }
-        
+
         private void Update()
         {
             var startTime = Time.realtimeSinceStartup;
-            
+
             // 检测相机投影模式变化
             CheckCameraProjectionModeChange();
-            
+
             // 更新调度器
             _updateScheduler?.UpdateSchedule();
-            
+
             // 剔除系统
             _cullingSystem?.UpdateCulling();
-            
+
+            // 聚合系统
+            _aggregationSystem?.Update();
+
             // 自动清理
             if (_globalConfig.enableAutoCleanup)
             {
                 AutoCleanup();
             }
-            
+
             var updateTime = Time.realtimeSinceStartup - startTime;
             OnUpdateTimeChanged?.Invoke(updateTime);
         }
-        
+
         private void OnDestroy()
         {
             if (_instance == this)
             {
                 // 触发销毁事件
                 WorldSpaceUIEvents.TriggerManagerDestroyed(this);
-                
+
                 // 清理所有UI分组
                 foreach (var group in _groups.Values)
                 {
                     group?.Dispose();
                 }
                 _groups.Clear();
-                
+
                 // 清理对象池
                 _objectPoolManager?.ClearAllPools();
                 _objectPoolManager = null;
-                
+
                 // 清理剔除系统
                 _cullingSystem?.Dispose();
                 _cullingSystem = null;
-                
+
+                // 清理聚合系统
+                _aggregationSystem?.Dispose();
+                _aggregationSystem = null;
+
                 // 清理更新调度器
                 _updateScheduler?.Dispose();
                 _updateScheduler = null;
-                
+
                 // 清理事件监听器
                 WorldSpaceUIEvents.ClearAllListeners();
-                
+
                 _instance = null;
-                
+
                 Debug.Log("[WorldSpaceUIManager] 已完全清理所有资源");
             }
         }
-        
+
         #endregion
-        
+
         #region Initialization
-        
+
         public void Initialize()
         {
             // 初始化对象池管理器
             _objectPoolManager = new UIObjectPoolManager(transform);
-            
+
             // 初始化更新调度器
             _updateScheduler = new UpdateScheduler();
-            
+
             // 初始化剔除系统
             if (_globalConfig.cullingConfig != null)
             {
@@ -225,19 +240,22 @@ namespace UGF.WorldUI
                 defaultConfig.enableCulling = false;
                 _cullingSystem = new CullingSystem(defaultConfig);
             }
-            
+
+            // 初始化聚合系统
+            _aggregationSystem = new UIAggregationSystem();
+
             // 创建默认分组
             CreateGroup("Default", new UIGroupConfig());
-            
+
             IsInitialized = true;
-            
+
             Debug.Log("[WorldSpaceUIManager] 初始化完成");
         }
-        
+
         #endregion
-        
+
         #region Public API
-        
+
         /// <summary>
         /// 创建世界空间UI
         /// </summary>
@@ -253,14 +271,14 @@ namespace UGF.WorldUI
                 Debug.LogError("[WorldSpaceUIManager] 预制体不能为空");
                 return null;
             }
-            
+
             // 检查实例数量限制
             if (_globalConfig.maxTotalInstances > 0 && TotalInstanceCount >= _globalConfig.maxTotalInstances)
             {
                 Debug.LogWarning("[WorldSpaceUIManager] 已达到最大实例数量限制");
                 return null;
             }
-            
+
             // 获取或创建分组
             var group = GetOrCreateGroup(groupName);
             if (group == null)
@@ -268,7 +286,7 @@ namespace UGF.WorldUI
                 Debug.LogError($"[WorldSpaceUIManager] 无法获取或创建分组: {groupName}");
                 return null;
             }
-            
+
             // 从对象池获取或创建实例
             T uiComponent;
             if (group.Config.enablePooling)
@@ -286,35 +304,41 @@ namespace UGF.WorldUI
                     uiComponent = instance.AddComponent<T>();
                 }
             }
-            
+
             if (uiComponent == null)
             {
                 Debug.LogError($"[WorldSpaceUIManager] 无法获取UI组件: {typeof(T).Name}");
                 return null;
             }
-            
+
             // 初始化UI组件
             uiComponent.Initialize(this, group, worldPosition);
-            
+
             // 添加到分组
             var addResult = group.AddUI(uiComponent);
-            
+
             // 添加到更新调度器
             _updateScheduler?.AddUpdateObject(uiComponent, group.Config.updateInterval);
-            
+
             // 添加到剔除系统
             _cullingSystem?.AddCullableObject(uiComponent);
-            
+
+            // 注册到聚合系统
+            if (uiComponent is IAggregatable aggregatable)
+            {
+                _aggregationSystem?.RegisterUI(aggregatable);
+            }
+
             // 更新计数
             TotalInstanceCount++;
             OnInstanceCountChanged?.Invoke(TotalInstanceCount);
-            
+
             // 触发事件
             OnUICreated?.Invoke(uiComponent);
-            
+
             return uiComponent;
         }
-        
+
         /// <summary>
         /// 销毁世界空间UI
         /// </summary>
@@ -322,19 +346,25 @@ namespace UGF.WorldUI
         public void DestroyUI(WorldSpaceUIComponent uiComponent)
         {
             if (uiComponent == null) return;
-            
+
+            // 从聚合系统注销
+            if (uiComponent is IAggregatable aggregatable)
+            {
+                _aggregationSystem?.UnregisterUI(aggregatable);
+            }
+
             var group = uiComponent.Group;
             if (group != null)
             {
                 group.RemoveUI(uiComponent);
             }
-            
+
             // 从更新调度器移除
             _updateScheduler?.RemoveUpdateObject(uiComponent);
-            
+
             // 从剔除系统移除
             _cullingSystem?.RemoveCullableObject(uiComponent);
-            
+
             // 返回对象池或销毁
             if (group?.Config.enablePooling == true)
             {
@@ -347,19 +377,19 @@ namespace UGF.WorldUI
                     Destroy(uiComponent.gameObject);
                 }
             }
-            
+
             // 更新计数
             TotalInstanceCount--;
             OnInstanceCountChanged?.Invoke(TotalInstanceCount);
-            
+
             // 触发事件
             OnUIDestroyed?.Invoke(uiComponent);
         }
-        
+
         #endregion
-        
+
         #region Statistics and Information
-        
+
         /// <summary>
         /// 获取统计信息
         /// </summary>
@@ -369,7 +399,7 @@ namespace UGF.WorldUI
             int activeUICount = 0;
             int visibleUICount = 0;
             int culledUICount = 0;
-            
+
             foreach (var group in _groups.Values)
             {
                 var components = group.UIComponents;
@@ -385,7 +415,7 @@ namespace UGF.WorldUI
                     }
                 }
             }
-            
+
             return new UIManagerStats
             {
                 ActiveUICount = activeUICount,
@@ -395,7 +425,7 @@ namespace UGF.WorldUI
                 PooledObjectCount = GetTotalPooledObjectCount()
             };
         }
-        
+
         /// <summary>
         /// 获取所有活跃的UI组件
         /// </summary>
@@ -403,15 +433,15 @@ namespace UGF.WorldUI
         public List<WorldSpaceUIComponent> GetAllActiveComponents()
         {
             var activeComponents = new List<WorldSpaceUIComponent>();
-            
+
             foreach (var group in _groups.Values)
             {
                 activeComponents.AddRange(group.UIComponents);
             }
-            
+
             return activeComponents;
         }
-        
+
         /// <summary>
         /// 检查是否存在指定分组
         /// </summary>
@@ -421,7 +451,7 @@ namespace UGF.WorldUI
         {
             return _groups.ContainsKey(groupName);
         }
-        
+
         /// <summary>
         /// 获取所有分组
         /// </summary>
@@ -430,7 +460,7 @@ namespace UGF.WorldUI
         {
             return new Dictionary<string, UIGroup>(_groups);
         }
-        
+
         /// <summary>
         /// 重新加载所有UI
         /// </summary>
@@ -441,13 +471,13 @@ namespace UGF.WorldUI
                 // 清除所有UI
                 group.ClearUI();
             }
-            
+
             // 清理对象池
             _objectPoolManager?.ClearAllPools();
-            
+
             Debug.Log("[WorldSpaceUIManager] 已重新加载所有UI");
         }
-        
+
         /// <summary>
         /// 获取总的池化对象数量
         /// </summary>
@@ -455,7 +485,7 @@ namespace UGF.WorldUI
         private int GetTotalPooledObjectCount()
         {
             if (_objectPoolManager == null) return 0;
-            
+
             int count = 0;
             var pools = _objectPoolManager.GetAllPools();
             if (pools != null)
@@ -467,11 +497,11 @@ namespace UGF.WorldUI
             }
             return count;
         }
-        
+
         #endregion
-        
+
         #region Group Management
-        
+
         /// <summary>
         /// 创建UI分组
         /// </summary>
@@ -485,25 +515,25 @@ namespace UGF.WorldUI
                 Debug.LogError("[WorldSpaceUIManager] 分组名称不能为空");
                 return null;
             }
-            
+
             if (_groups.ContainsKey(groupName))
             {
                 Debug.LogWarning($"[WorldSpaceUIManager] 分组已存在: {groupName}");
                 return _groups[groupName];
             }
-            
+
             config ??= new UIGroupConfig();
             var group = new UIGroup(groupName, config, transform);
             _groups[groupName] = group;
-            
+
             // 将UIGroup添加到更新调度器
             _updateScheduler?.AddUpdateGroup(group, config.updateInterval);
-            
+
             OnGroupCreated?.Invoke(groupName, group);
-            
+
             return group;
         }
-        
+
         /// <summary>
         /// 获取UI分组
         /// </summary>
@@ -513,7 +543,7 @@ namespace UGF.WorldUI
         {
             return _groups.TryGetValue(groupName, out var group) ? group : null;
         }
-        
+
         /// <summary>
         /// 删除UI分组
         /// </summary>
@@ -526,21 +556,21 @@ namespace UGF.WorldUI
                 Debug.LogWarning("[WorldSpaceUIManager] 不能删除默认分组");
                 return false;
             }
-            
+
             if (_groups.TryGetValue(groupName, out var group))
             {
                 // 从更新调度器中移除
                 _updateScheduler?.RemoveUpdateGroup(group);
-                
+
                 group.Dispose();
                 _groups.Remove(groupName);
                 OnGroupRemoved?.Invoke(groupName);
                 return true;
             }
-            
+
             return false;
         }
-        
+
         /// <summary>
         /// 设置分组可见性
         /// </summary>
@@ -551,7 +581,7 @@ namespace UGF.WorldUI
             var group = GetGroup(groupName);
             group?.SetVisible(visible);
         }
-        
+
         /// <summary>
         /// 设置分组激活状态
         /// </summary>
@@ -562,7 +592,7 @@ namespace UGF.WorldUI
             var group = GetGroup(groupName);
             group?.SetActive(active);
         }
-        
+
         /// <summary>
         /// 设置分组剔除启用状态
         /// </summary>
@@ -573,7 +603,7 @@ namespace UGF.WorldUI
             var group = GetGroup(groupName);
             group?.SetCullingEnabled(enabled);
         }
-        
+
         /// <summary>
         /// 获取分组剔除启用状态
         /// </summary>
@@ -584,7 +614,29 @@ namespace UGF.WorldUI
             var group = GetGroup(groupName);
             return group?.IsCullingEnabled() ?? false;
         }
-        
+
+        /// <summary>
+        /// 设置分组聚合启用状态
+        /// </summary>
+        /// <param name="groupName">分组名称</param>
+        /// <param name="enabled">是否启用聚合</param>
+        public void SetGroupAggregationEnabled(string groupName, bool enabled)
+        {
+            var group = GetGroup(groupName);
+            group?.SetAggregationEnabled(enabled);
+        }
+
+        /// <summary>
+        /// 获取分组聚合启用状态
+        /// </summary>
+        /// <param name="groupName">分组名称</param>
+        /// <returns>是否启用聚合</returns>
+        public bool IsGroupAggregationEnabled(string groupName)
+        {
+            var group = GetGroup(groupName);
+            return group?.IsAggregationEnabled() ?? false;
+        }
+
         private UIGroup GetOrCreateGroup(string groupName)
         {
             var group = GetGroup(groupName);
@@ -594,13 +646,13 @@ namespace UGF.WorldUI
             }
             return group;
         }
-        
 
-        
+
+
         #endregion
-        
+
         #region Object Pool
-        
+
         /// <summary>
         /// 预热对象池
         /// </summary>
@@ -611,7 +663,7 @@ namespace UGF.WorldUI
         {
             _objectPoolManager?.WarmPool(prefab, count);
         }
-        
+
         /// <summary>
         /// 清理对象池
         /// </summary>
@@ -619,7 +671,7 @@ namespace UGF.WorldUI
         {
             _objectPoolManager?.ClearAllPools();
         }
-        
+
         /// <summary>
         /// 获取所有对象池
         /// </summary>
@@ -628,7 +680,7 @@ namespace UGF.WorldUI
         {
             return _objectPoolManager?.GetAllPools() ?? new Dictionary<string, UIPool>();
         }
-        
+
         /// <summary>
         /// 清理所有对象池
         /// </summary>
@@ -636,7 +688,7 @@ namespace UGF.WorldUI
         {
             _objectPoolManager?.ClearAllPools();
         }
-        
+
         /// <summary>
         /// 预热所有对象池
         /// </summary>
@@ -648,11 +700,33 @@ namespace UGF.WorldUI
                 pool.PreWarm(pool.Config.preWarmCount);
             }
         }
-        
+
+        /// <summary>
+        /// 从对象池获取UI（用于聚合系统等内部使用）
+        /// </summary>
+        internal WorldSpaceUIComponent GetOrCreatePooledUI(GameObject prefab, Transform parent)
+        {
+            if (prefab == null) return null;
+            var component = _objectPoolManager?.Get<WorldSpaceUIComponent>(prefab);
+            if (component != null)
+            {
+                component.transform.SetParent(parent, false);
+            }
+            return component;
+        }
+
+        /// <summary>
+        /// 将UI返回对象池
+        /// </summary>
+        internal void ReturnToPool(WorldSpaceUIComponent component)
+        {
+            _objectPoolManager?.Return(component);
+        }
+
         #endregion
-        
+
         #region Configuration
-        
+
         /// <summary>
         /// 设置全局配置
         /// </summary>
@@ -660,7 +734,7 @@ namespace UGF.WorldUI
         public void SetGlobalConfig(WorldSpaceUIManagerConfig config)
         {
             _globalConfig = config ?? new WorldSpaceUIManagerConfig();
-            
+
             // 如果已初始化，更新剔除系统配置
             if (IsInitialized && _cullingSystem != null)
             {
@@ -677,7 +751,7 @@ namespace UGF.WorldUI
                 }
             }
         }
-        
+
         /// <summary>
         /// 获取剔除系统配置
         /// </summary>
@@ -686,7 +760,7 @@ namespace UGF.WorldUI
         {
             return _cullingSystem?.Config;
         }
-        
+
         /// <summary>
         /// 设置剔除系统配置
         /// </summary>
@@ -698,11 +772,11 @@ namespace UGF.WorldUI
                 Debug.LogError("[WorldSpaceUIManager] 剔除配置不能为空");
                 return;
             }
-            
+
             // 重新初始化剔除系统
             var oldCullingSystem = _cullingSystem;
             _cullingSystem = new CullingSystem(config);
-            
+
             // 迁移所有UI组件到新的剔除系统
             if (oldCullingSystem != null)
             {
@@ -715,33 +789,33 @@ namespace UGF.WorldUI
                 }
                 oldCullingSystem.Dispose();
             }
-            
+
             Debug.Log("[WorldSpaceUIManager] 剔除系统配置已更新");
         }
-        
+
         #endregion
-        
+
         #region Auto Cleanup
-        
+
         private float _lastCleanupTime;
-        
+
         private void AutoCleanup()
         {
             if (Time.time - _lastCleanupTime < _globalConfig.cleanupInterval)
                 return;
-            
+
             _lastCleanupTime = Time.time;
-            
+
             // 清理过期的UI
             foreach (var group in _groups.Values)
             {
                 group.CleanupExpiredUIs();
             }
-            
+
             // 清理对象池
             _objectPoolManager?.ValidateAllPools();
         }
-        
+
         /// <summary>
         /// 检测相机投影模式变化
         /// </summary>
@@ -752,9 +826,9 @@ namespace UGF.WorldUI
             {
                 _lastOrthographicState = currentOrthographicState;
                 OnCameraProjectionModeChanged?.Invoke(currentOrthographicState);
-                
+
                 Debug.Log($"[WorldSpaceUIManager] 相机投影模式已变更为: {CameraProjectionMode}");
-                
+
                 // 通知所有分组更新缩放设置
                 foreach (var group in _groups.Values)
                 {
@@ -762,11 +836,11 @@ namespace UGF.WorldUI
                 }
             }
         }
-        
+
         #endregion
-        
+
         #region Debug
-        
+
         /// <summary>
         /// 绘制调试Gizmos
         /// </summary>
@@ -777,10 +851,10 @@ namespace UGF.WorldUI
                 _cullingSystem.DrawDebugGizmos();
             }
         }
-        
+
         #endregion
     }
-    
+
     /// <summary>
     /// UI管理器统计信息
     /// </summary>
@@ -791,22 +865,22 @@ namespace UGF.WorldUI
         /// 活跃UI数量
         /// </summary>
         public int ActiveUICount;
-        
+
         /// <summary>
         /// 可见UI数量
         /// </summary>
         public int VisibleUICount;
-        
+
         /// <summary>
         /// 被剔除UI数量
         /// </summary>
         public int CulledUICount;
-        
+
         /// <summary>
         /// 对象池数量
         /// </summary>
         public int PoolCount;
-        
+
         /// <summary>
         /// 池化对象数量
         /// </summary>

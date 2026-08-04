@@ -220,8 +220,6 @@ namespace UGF.WorldUI
 
             // 调用子类初始化
             OnInitialize();
-
-            Debug.Log($"[{GetType().Name}] UI组件初始化完成");
         }
 
         /// <summary>
@@ -271,13 +269,7 @@ namespace UGF.WorldUI
                     {
                         gameObject.AddComponent<GraphicRaycaster>();
                     }
-
-                    Debug.Log($"[{GetType().Name}] 未找到父级Canvas，已在当前GameObject上添加Canvas");
                 }
-            }
-            else
-            {
-                Debug.Log($"[{GetType().Name}] 使用父级Canvas: {_canvas.name}");
             }
         }
 

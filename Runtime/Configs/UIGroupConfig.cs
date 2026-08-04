@@ -123,6 +123,13 @@ namespace UGF.WorldUI
         [Range(1f, 100f)]
         public float orthographicFixedDistance = 10f;
 
+        [Header("聚合设置")]
+        [Tooltip("启用/禁用该分组的聚合（默认跟随全局设置）")]
+        public bool enableAggregation = true;
+
+        [Tooltip("该分组的聚合距离/显示等配置（null 则使用默认值）")]
+        public UIAggregationConfig aggregationConfig;
+
         [Header("调试")]
         [Tooltip("显示调试信息")]
         public bool showDebugInfo = false;
@@ -333,6 +340,7 @@ namespace UGF.WorldUI
                 orthographicScaleFactor = this.orthographicScaleFactor,
                 orthographicDistanceMode = this.orthographicDistanceMode,
                 orthographicFixedDistance = this.orthographicFixedDistance,
+                aggregationConfig = this.aggregationConfig,
                 showDebugInfo = this.showDebugInfo,
                 debugColor = this.debugColor
             };
